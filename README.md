@@ -1,6 +1,6 @@
 # Password-Manager
 
-**Screen Color Generator** is a fully functional command line-based application developed in C that allows users to manage their login credentials securely. 
+**Password Manager** is a fully functional command line-based application developed in C that allows users to manage and store their login credentials securely. 
 
 ## Features
 The following functionality is provided:
@@ -13,7 +13,7 @@ The following functionality is provided:
 
 ## Upcoming Features
 1) Two-factor authentication
-2) Provide a recovery option for forgotten passwords
+2) Recovery option for forgotten passwords
 
 ## Execution Instruction
 First, create two txt files. One will be used to store the master usernames and encrypted master passwords while the other will be used to store the keys along with master usernames. The keys will be used to perform XOR on the encrypted password to yield the user's actual password. Each piece of user information will be stored in the form of space-separated data. Once this is done, to run the program, two command line arguments must be provided in the following order: Data.txt DataKeys.txt. The Data.txt will contain the master login credentials while the DataKeys.txt will contain the keys and master usernames. Upon creating an account, a new txt file will be generated to enable users to store their personal login credentials. 
