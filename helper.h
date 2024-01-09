@@ -14,7 +14,7 @@
 typedef struct node
 {
     char masteru[MUSERNAMESIZE + 1];
-    char masterp[MPASSWORDSIZE + 1]; 
+    char masterp[MPASSWORDSIZE + 1];
     struct node *next;
 }
 node;
@@ -28,10 +28,11 @@ typedef struct record
 }
 record;
 
-bool gen_valid_key(const char *input, char *output, char *key);
-bool is_valid_encryption(char *input);
+void gen_key_candidates();
+void gen_xor_key(const char* user_password, char* key);
 void xor_cipher(const char *input, char *output, const char *key);
-bool gen_key(char *key, int len);
+void printRow(const char* username, const char* password, const char* website, char* rank, int columnWidths[]);
+void printSeparator(int columnWidths[]);
 void print_records(record **vault, int len);
 bool insertion_sort(record **vault, int len);
 bool delete_record(record **vault, int *len, const char *userfile, const char *username, const char *password);
@@ -50,11 +51,10 @@ bool update_userfile(const char *file, const char *target1, const char *target2,
 bool create_account(const char *datafile, const char *accountkeys, const char *musername, const char *mpassword);
 bool delete_account(const char *datafile, const char *accountkeys, const char *musername, const char *mpassword);
 bool modify_account(const char *datafile, const char *accountkeys, const char *prevusername, const char *prevpassword, const char *newusername, const char *newpassword);
-bool is_valid_mpassword(const char *password, const char *accountkeys);
+bool is_valid_mpassword(const char *password, const char *accountkeys, const char *username);
 bool is_valid_musername(const char *username);
 bool is_valid_username(const char *username);
 bool is_valid_password(const char *password);
 bool load_accounts(const char *accounts, const char *accountkeys);
 bool unload(void);
 void free_row(node *node);
-void read_datafile(void);

@@ -1,75 +1,51 @@
 #include "helper.h"
 
-// Number of buckets in hash table
+
 const unsigned int N = MOD;
 const int DATA_BLOCK_SIZE = MUSERNAMESIZE + MPASSWORDSIZE + 3;
 const int RECORD_BLOCK_SIZE = MUSERNAMESIZE + MPASSWORDSIZE + URLSIZE + 5;
 
-// Hash table
+// hash table
 node *table[N];
+// to contain char candidates when gen xor key
+char key_candidates[128][128];
 
-bool gen_valid_key(const char *input, char *output, char *key)
-{
-    char tempinput[MPASSWORDSIZE + 1] = {0};
-    strcpy(tempinput, input);
-    int length = strlen(tempinput);
-    do
+void gen_key_candidates() {
+    const char chars[] = "a0!Cq\"b#Arc$%PB&Op2Q'D(SmR*E)nT3dw+5,oUFv-fG.I4/:lV;eWHuk<=X>6?g@sYZ[\\J7]tL^_K1`{|8hi}~MyNxj9z";
+    int chars_len = strlen(chars);
+    for (int i = 0; i < chars_len; i++)
     {
-        while (!gen_key(key, length));
-        xor_cipher(tempinput, output, key);
+        for (int j = 0; j < chars_len; j++)
+        {
+            char result = chars[i] ^ chars[j];
+            if (result >= '!' && result <= '~')
+            {
+                int charValue = chars[i];
+                key_candidates[charValue][strlen(key_candidates[charValue])] = chars[j];
+            }
+        }
     }
-    while (!is_valid_encryption(output));
-    xor_cipher(output, tempinput, key);
-    if (strcasecmp(tempinput, input) != 0)
-    {
-        return false;
-    }
-    return true;
 }
 
-bool is_valid_encryption(char *input)
-{
-    int len = strlen(input);
-    for (int i = 0; i < len; i++)
+void gen_xor_key(const char* user_password, char* key) {
+    int password_len = strlen(user_password);
+    for (int i = 0; i < password_len; i++)
     {
-        int charValue = input[i];
-        if ((charValue >= 0 && charValue <= 32) || charValue == 127)
-        {
-            return false;
-        }
+        int charValue = user_password[i];
+        char* candidates = key_candidates[charValue];
+        key[i] = candidates[rand() % strlen(candidates)];
     }
-    for (int i = len; i < MPASSWORDSIZE + 1; i++)
-    {
-        int charValue = input[i];
-        if (charValue != '\0')
-        {
-            return false;
-        }
-    }
-    return true;
+    key[password_len] = '\0';
 }
 
 void xor_cipher(const char *input, char *output, const char *key)
 {
     int length = strlen(input);
-	for(int i = 0; i < length; i++)
-	{
-		output[i] = input[i] ^ key[i];
-	}
-	output[length] = '\0';
-}
-
-bool gen_key(char *key, int len)
-{
-	char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    int size = sizeof(charset) - 1;
-	for (int index = 0; index < len; index++)
-	{
-		key[index] = charset[rand() % size];
-        if (key[index] == '\0') return false;
-	}
-    key[len] = '\0';
-    return true;
+    for (int i = 0; i < length; i++)
+    {
+        output[i] = input[i] ^ key[i];
+    }
+    output[length] = '\0';
 }
 
 bool delete_record(record **vault, int *len, const char *userfile, const char *username, const char *password)
@@ -78,7 +54,7 @@ bool delete_record(record **vault, int *len, const char *userfile, const char *u
     {
         if (strcasecmp((*vault)[i].username, username) == 0 && strcasecmp((*vault)[i].password, password) == 0)
         {
-            record* newVault = (record*)malloc(sizeof(record) * (--(*len)));
+            record *newVault = (record *) malloc(sizeof(record) * (--(*len)));
             if (newVault == NULL)
             {
                 printf("Unable to allocate memory for new vault.");
@@ -88,9 +64,8 @@ bool delete_record(record **vault, int *len, const char *userfile, const char *u
             FILE *fvaultu = fopen(userfile, "w");
             if (fvaultu == NULL)
             {
-                free(*vault);
-                (*len) = 0;
-                printf("Unable to open and update user file. Vault was emptied.\n");
+                printf("Unable to open and update user file.\n");
+                (*len)++;
                 return false;
             }
             int indexToDelete = i;
@@ -150,9 +125,7 @@ bool modify_record(record **vault, int *len, const char *userfile, const char *p
             FILE *fvaultu = fopen(userfile, "w");
             if (fvaultu == NULL)
             {
-                free(*vault);
-                (*len) = 0;
-                printf("Unable to open and update user file. Vault was emptied.\n");
+                printf("Unable to open and update user file.\n");
                 return false;
             }
             insertion_sort(&(*vault), *len);
@@ -166,7 +139,6 @@ bool modify_record(record **vault, int *len, const char *userfile, const char *p
     }
     return false;
 }
-
 
 bool add_record(record **vault, int *len, const char *userfile, const char *username, const char *password, const char *website, int rank)
 {
@@ -185,26 +157,41 @@ bool add_record(record **vault, int *len, const char *userfile, const char *user
         printf("Invalid rank number.\n");
         return false;
     }
-    record *temp = (record*)realloc(*vault, sizeof(record) * (++(*len)));
-    if (temp == NULL)
+    FILE *fvaultu = fopen(userfile, "w");
+    if (fvaultu == NULL)
     {
-        printf("Unable to allocate memory for new record.\n");
-        (*len)--;
+        printf("Unable to open and update user file.\n");
         return false;
     }
-    *vault = temp;
+    // if vault is initially empty
+    if (*len == 0)
+    {
+        // allocate memory for a initial record
+        *vault = (record *) malloc(sizeof(record));
+        // ensure memory is allocated
+        if (*vault == NULL)
+        {
+            printf("Unable to allocate memory for first record.\n");
+            return false;
+        }
+        (*len)++;
+    }
+    else
+    {    // else, realloc memory for any subsequent record
+        record *temp = (record *) realloc(*vault, sizeof(record) * (++(*len)));
+        // ensure memory is allocaed
+        if (temp == NULL)
+        {
+            printf("Unable to allocate memory for new record.\n");
+            (*len)--;
+            return false;
+        }
+        *vault = temp;
+    }
     strcpy((*vault)[(*len) - 1].username, username);
     strcpy((*vault)[(*len) - 1].password, password);
     strcpy((*vault)[(*len) - 1].website, website);
     (*vault)[(*len) - 1].rank = rank;
-    FILE *fvaultu = fopen(userfile, "w");
-    if (fvaultu == NULL)
-    {
-        free(*vault);
-        (*len) = 0;
-        printf("Unable to open and update user file. Vault was emptied.\n");
-        return false;
-    }
     insertion_sort(&(*vault), *len);
     for (int i = 0; i < *len; i++)
     {
@@ -213,7 +200,6 @@ bool add_record(record **vault, int *len, const char *userfile, const char *user
     fclose(fvaultu);
     return true;
 }
-
 
 bool is_valid_recordpassword(record **vault, const char *password, int len)
 {
@@ -266,7 +252,7 @@ bool is_strong_password(const char *password, int len)
         {
             numberCount++;
         }
-        else
+        else if ((password[i] >= '!' && password[i] <= '/') || (password[i] >= ':' && password[i] <= '@') || (password[i] >= '[' && password[i] <= '`') || (password[i] >= '{' && password[i] <= '~'))
         {
             symbolCount++;
         }
@@ -282,10 +268,10 @@ bool insertion_sort(record **vault, int len)
 {
     for (int i = 1; i < len; i++)
     {
-        record *key = (record*)malloc(sizeof(record));
+        record *key = (record *) malloc(sizeof(record));
         if (key == NULL)
         {
-            printf("Unable to allocate memory for temp key. Sorting was unsuccessful.\n");
+            printf("Unable to allocate memory for temp key. Sorting was unsuccessful.");
             return false;
         }
         strcpy(key->username, (*vault)[i].username);
@@ -310,12 +296,37 @@ bool insertion_sort(record **vault, int len)
     return true;
 }
 
-void print_records(record **vault, int len)
+void printRow(const char *username, const char *password, const char *website, char *rank, int columnWidths[])
 {
-    printf("Username:\tPassword:\t\tWebsite:\tRank:\n");
+    printf("| %-*s | %-*s | %-*s | %-*s |\n", columnWidths[0], username, columnWidths[1], password, columnWidths[2], website, columnWidths[3], rank);
+}
+
+void printSeparator(int columnWidths[])
+{
+    const int len = 4;
     for (int i = 0; i < len; i++)
     {
-        printf("%s\t%s\t%s\t%d\n", (*vault)[i].username, (*vault)[i].password, (*vault)[i].website, (*vault)[i].rank);
+        printf("+");
+        for (int j = 0; j < columnWidths[i] + 2; j++)
+        {
+            printf("-");
+        }
+    }
+    printf("+\n");
+}
+
+void print_records(record **vault, int len)
+{
+    int columnWidths[4] = {MUSERNAMESIZE + 2, MPASSWORDSIZE + 2, URLSIZE + 2, 4}; // adjust to fit width based on MAX size of everything
+    printSeparator(columnWidths);
+    printRow("Username", "Password", "Website", "Rank", columnWidths);
+    printSeparator(columnWidths);
+    for (int i = 0; i < len; i++)
+    {
+        char rankStr[3]; // based on size of rank column
+        sprintf(rankStr, "%d", (*vault)[i].rank);
+        printRow((*vault)[i].username, (*vault)[i].password, (*vault)[i].website, rankStr, columnWidths);
+        printSeparator(columnWidths);
     }
     printf("\n");
 }
@@ -337,7 +348,7 @@ bool load_vault(const char *userfile, record **vault, int *vaultlen)
         (*vaultlen)++;
         if (row == 0)
         {
-            *vault = (record*)malloc(sizeof(record));
+            *vault = (record *) malloc(sizeof(record));
             if (*vault == NULL)
             {
                 fclose(fvault);
@@ -348,11 +359,11 @@ bool load_vault(const char *userfile, record **vault, int *vaultlen)
         }
         else
         {
-            record *temp = (record*)realloc(*vault, sizeof(record) * (*vaultlen));
+            record *temp = (record *) realloc(*vault, sizeof(record) * (*vaultlen));
             if (temp == NULL)
             {
                 fclose(fvault);
-                free(*vault); // when doing this the vault len has to be reset to 0 and then you're done
+                free(*vault);
                 (*vaultlen) = 0;
                 printf("Memory not available to load all records in vault.\n");
                 return false;
@@ -433,7 +444,6 @@ bool load_vault(const char *userfile, record **vault, int *vaultlen)
     return true;
 }
 
-
 bool open_userfile(char *userfile, const char *musername)
 {
     if (sprintf(userfile, "%s.txt", musername) < 0)
@@ -473,7 +483,7 @@ void gen_randpassword(char *buffer, int length)
     {
         flag = true;
         char validchars[] = "a0!Cq\"b#Arc$%PB&Op2Q'D(SmR*E)nT3dw+5,oUFv-fG.I4/:lV;eWHuk<=X>6?g@sYZ[\\J7]tL^_K1`{|8hi}~MyNxj9z";
-        int max = sizeof(validchars) - 1, min = 0;
+        int max = sizeof(validchars), min = 0;
         for (int i = 0; i < length; i++)
         {
             buffer[i] = validchars[rand() % (max + 1 - min) + min];
@@ -506,7 +516,8 @@ bool update_userfile(const char *file, const char *target1, const char *target2,
     strcat(lineToRemove, target2);
     strcat(lineToRemove, "\n");
     bool found = false;
-    while (fgets(buffer, DATA_BLOCK_SIZE, fuserfile)) {
+    while (fgets(buffer, DATA_BLOCK_SIZE, fuserfile))
+    {
         int count = -1;
         int nplace = 0;
         for (int i = 0; i < DATA_BLOCK_SIZE; i++)
@@ -532,7 +543,7 @@ bool update_userfile(const char *file, const char *target1, const char *target2,
         }
         else
         {
-             found = true;
+            found = true;
         }
     }
     fclose(fuserfile);
@@ -569,7 +580,7 @@ bool update_userfile(const char *file, const char *target1, const char *target2,
 
 bool modify_account(const char *datafile, const char *accountkeys, const char *prevusername, const char *prevpassword, const char *newusername, const char *newpassword)
 {
-    if (!is_valid_musername(newusername) || !is_valid_mpassword(newpassword, accountkeys))
+    if (!is_valid_musername(newusername) || !is_valid_mpassword(newpassword, accountkeys, newusername))
     {
         return false;
     }
@@ -583,7 +594,7 @@ bool modify_account(const char *datafile, const char *accountkeys, const char *p
         get_password(password, temp->masterp, prevusername, accountkeys);
         if (strcasecmp(temp->masteru, prevusername) == 0 && strcasecmp(password, prevpassword) == 0)
         {
-            node *account = (node*)malloc(sizeof(node));
+            node *account = (node *) malloc(sizeof(node));
             if (account == NULL)
             {
                 printf("Unable to allocate memory for altered account.");
@@ -598,7 +609,7 @@ bool modify_account(const char *datafile, const char *accountkeys, const char *p
             }
             if (sprintf(newFileName, "%s.txt", newusername) < 0)
             {
-                printf("Error in determining new filename\n");
+                printf("Error in determing new filename\n");
             }
             if (rename(oldFileName, newFileName) != 0)
             {
@@ -610,13 +621,12 @@ bool modify_account(const char *datafile, const char *accountkeys, const char *p
             table[newindex] = account;
             char encryptedpassword[MPASSWORDSIZE + 1] = {0};
             char newkey[MPASSWORDSIZE + 1] = {0};
-            while (1)
-            {
-                if (gen_valid_key(newpassword, encryptedpassword, newkey)) break;
-            }
+            gen_xor_key(newpassword, newkey);
+            xor_cipher(newpassword, encryptedpassword, newkey);
             strcpy(account->masteru, newusername);
             strcpy(account->masterp, encryptedpassword);
             char oldkey[MPASSWORDSIZE + 1] = {0};
+            // retrieve old key
             xor_cipher(temp->masterp, oldkey, prevpassword);
             if (!update_userfile(datafile, prevusername, temp->masterp, newusername, encryptedpassword, true))
             {
@@ -722,11 +732,11 @@ bool create_account(const char *datafile, const char *accountkeys, const char *m
         fclose(fpdata);
         return false;
     }
-    if (!is_valid_musername(musername) || !is_valid_mpassword(mpassword, accountkeys))
+    if (!is_valid_musername(musername) || !is_valid_mpassword(mpassword, accountkeys, musername))
     {
         return false;
     }
-    node *account = (node*)malloc(sizeof(node));
+    node *account = (node *) malloc(sizeof(node));
     if (account == NULL)
     {
         printf("Unable to allocate memory for altered account.");
@@ -737,10 +747,9 @@ bool create_account(const char *datafile, const char *accountkeys, const char *m
     table[i] = account;
     char encryptedpassword[MPASSWORDSIZE + 1] = {0};
     char key[MPASSWORDSIZE + 1] = {0};
-    while (1)
-    {
-        if (gen_valid_key(mpassword, encryptedpassword, key)) break;
-    }
+    gen_xor_key(mpassword, key);
+    // fills encryptedpassword
+    xor_cipher(mpassword, encryptedpassword, key);
     strcpy(account->masteru, musername);
     strcpy(account->masterp, encryptedpassword);
     fprintf(fpkeys, "%s %s\n", account->masteru, key);
@@ -749,22 +758,7 @@ bool create_account(const char *datafile, const char *accountkeys, const char *m
     fclose(fpdata);
     return true;
 }
-// reserved for admin to display the encrypted login credentials of user accounts
-void read_datafile(void)
-{
-    printf("Username:\tPassword:\n");
-    for (int i = 0; i < N; i++)
-    {
-        node *temp = table[i];
-        while (temp != NULL)
-        {
-            printf("%s\t%s\n", temp->masteru, temp->masterp);
-            temp = temp->next;
-        }
-    }
-    printf("\n");
-}
-
+// deallocate memory
 void free_row(node *node)
 {
     // if we have passed the last node
@@ -852,26 +846,25 @@ bool is_valid_password(const char *password)
     return true;
 }
 
-bool is_valid_mpassword(const char *password, const char *accountkeys)
+bool is_valid_mpassword(const char *password, const char *accountkeys, const char *username)
 {
     if (!is_valid_password(password))
     {
         return false;
     }
     char mpassword[MPASSWORDSIZE + 1] = {0};
-    for (int i = 0; i < N; i++)
+    int index = hashindex(username);
+    node *temp = table[index];
+    while (temp != NULL)
     {
-        node *temp = table[i];
-        while (temp != NULL)
+        //          mpassword to be filled, encrypted version of mpassword, username, accountkeys file
+        get_password(mpassword, temp->masterp, temp->masteru, accountkeys);
+        if (strcasecmp(mpassword, password) == 0)
         {
-            get_password(mpassword, temp->masterp, temp->masteru, accountkeys);
-            if (strcasecmp(mpassword, password) == 0)
-            {
-                printf("[%s] is a password that's already taken.\n", password);
-                return false;
-            }
-            temp = temp->next;
+            printf("[%s] is a password that's already taken.\n", password);
+            return false;
         }
+        temp = temp->next;
     }
     return true;
 }
@@ -947,7 +940,7 @@ bool load_accounts(const char *accounts, const char *accountkeys)
     while (fgets(buffer, DATA_BLOCK_SIZE, fprdata) != NULL)
     {
         col = 0;
-        node *account = (node*)malloc(sizeof(node));
+        node *account = (node *) malloc(sizeof(node));
         if (account == NULL)
         {
             unload();
@@ -978,7 +971,7 @@ bool load_accounts(const char *accounts, const char *accountkeys)
                     fclose(fprdata);
                     return false;
                 }
-                if (!is_valid_mpassword(password, accountkeys))
+                if (!is_valid_mpassword(password, accountkeys, account->masteru))
                 {
                     unload();
                     fclose(fprdata);
