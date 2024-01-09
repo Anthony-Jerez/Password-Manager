@@ -3,7 +3,6 @@
 
 int main(int argc, char *argv[])
 {
-    srand(time(0));
     if (argc == 3)
     {
         int bufferlen = strlen(argv[1]);
@@ -29,6 +28,8 @@ int main(int argc, char *argv[])
         puts("Provide exactly two command line arguments in the following format: [data].txt [datakeys].txt");
         return 2;
     }
+    srand(time(0));
+    gen_key_candidates();
     if (!load_accounts(argv[1], argv[2]))
     {
         puts("Failed to load accounts successfully.");
