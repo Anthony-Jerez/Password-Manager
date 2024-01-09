@@ -15,6 +15,9 @@ The following functionality is provided:
 1) Two-factor authentication
 2) Recovery option for forgotten passwords
 
+## Video Walkthrough
+[Video Demo](https://youtu.be/73T6IY23dHA)
+
 ## Execution Instruction
 First, create two txt files. One will be used to store the master usernames and encrypted master passwords while the other will be used to store the keys along with master usernames. The keys will be used to perform XOR on the encrypted password to yield the user's actual password. Each piece of user information will be stored in the form of space-separated data. Once this is done, to run the program, two command line arguments must be provided in the following order: Data.txt DataKeys.txt. The Data.txt will contain the master login credentials while the DataKeys.txt will contain the keys and master usernames. Upon creating an account, a new txt file will be generated to enable users to store their personal login credentials. 
 
