@@ -7,7 +7,7 @@ The following functionality is provided:
 
 - [x] Implementation of a login system to support multiple users 
 - [x] Users can store, modify, view, and delete their login credentials 
-- [x] Passwords are stored securely in their encrypted form using XOR encryption
+- [x] Master passwords are stored securely in their encrypted form using XOR encryption
 - [x] User information is sorted according to usage rate to ensure faster retrieval time of user data
 - [x] Randomly generate a secure password
 
